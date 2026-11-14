@@ -1,0 +1,31 @@
+# Dependencies and build output
+node_modules/
+**/node_modules/
+frontend/dist/
+/frontend/public/qa/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Runtime data, generated media, caches, and logs
+/backend/.data/
+/backend/.cache/
+/exports/*
+!/exports/.gitkeep
+/uploads/*
+!/uploads/.gitkeep
+temp/
+tmp/
+cache/
+.cache/
+logs/
+*.log
+
+# Operating system and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
