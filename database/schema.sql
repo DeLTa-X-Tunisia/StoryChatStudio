@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   title VARCHAR(180) NOT NULL,
   description TEXT NULL,
   theme ENUM('messenger','whatsapp','instagram','sms','telegram') NOT NULL DEFAULT 'messenger',
+  language VARCHAR(16) NOT NULL DEFAULT 'fr',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_conversations_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,

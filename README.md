@@ -38,7 +38,7 @@ Write and arrange a conversation in the timeline, preview it inside a phone inte
 - **Messenger-style conversation editor** with a live phone preview.
 - **Timeline editing** for messages, typing events, calls, reactions, and other chat events.
 - **Character management** with reusable participant profiles and avatars.
-- **Story generation** through the demo provider, OpenAI, Ollama, or a compatible local endpoint.
+- **Story generation** in French, English, Italian, Brazilian Portuguese, Tunisian/Algerian/Moroccan Darija, or Egyptian Arabic through the demo provider, OpenAI, Ollama, or a compatible local endpoint.
 - **Automatic and manual save** with visible save status and keyboard shortcut support.
 - **Message status and reactions**, including sent, delivered, seen, and typing indicators.
 - **Light and dark Messenger appearance** for the preview and video export.
@@ -123,6 +123,8 @@ Backend settings are read from `backend/.env`. Common options include:
 | `REMOTION_CONCURRENCY` | Optional Remotion render concurrency setting. |
 
 The demo story provider is available without an AI service. Configure provider credentials only in your local, untracked `.env` file.
+
+The story generator supports French, English, Italian, Brazilian Portuguese, Tunisian/Algerian/Moroccan Darija, and Egyptian Arabic. The selected language is stored with each conversation and passed to configured AI providers.
 
 ## Architecture
 

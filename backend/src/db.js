@@ -21,6 +21,7 @@ export async function connectDatabase() {
     for (const statement of schema.split(';').map(s => s.trim()).filter(Boolean)) await pool.query(statement);
     await ensureColumn('participants', 'character_id', 'BIGINT UNSIGNED NULL');
     await ensureColumn('conversations', 'description', 'TEXT NULL');
+    await ensureColumn('conversations', 'language', "VARCHAR(16) NOT NULL DEFAULT 'fr'");
     await ensureColumn('characters', 'voice_provider', 'VARCHAR(32) NULL');
     await ensureColumn('characters', 'voice_id', 'VARCHAR(128) NULL');
     await ensureColumn('messages', 'message_type', "ENUM('message','typing','reaction','seen','user_blocked','call_audio_missed','call_video_missed','call_audio_accepted','call_video_accepted','call_audio_refused','call_video_refused','deleted','edited','photo','video','voice') NOT NULL DEFAULT 'message'");

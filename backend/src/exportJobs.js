@@ -102,6 +102,7 @@ export function startExportJob(data) {
         includeSounds: Boolean(data.includeSounds),
         ultraRealistic: data.ultraRealistic !== false,
         messengerAppearance: data.messengerAppearance || 'light',
+        googleSearchAppearance: data.googleSearchAppearance === 'dark' ? 'dark' : 'light',
         exportMode: data.exportMode || (data.screenRecording ? 'screen-recording' : 'messenger-fullscreen'),
         publicBaseUrl: data.publicBaseUrl || 'http://localhost:4000',
       };

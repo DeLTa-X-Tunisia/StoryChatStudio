@@ -2,9 +2,31 @@ import { Fragment, useLayoutEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeft, MoreHorizontal, Phone, Video, Wifi } from 'lucide-react';
 import { imageUrl } from '../api.js';
+import GoogleSearchPreview from './GoogleSearchPreview.jsx';
 
 const initials = name => (name || '?').slice(0,1).toUpperCase();
-const dateText=value=>({today:"Aujourd’hui",yesterday:'Hier',tomorrow:'Demain',monday:'Lundi',tuesday:'Mardi',wednesday:'Mercredi',thursday:'Jeudi',friday:'Vendredi',saturday:'Samedi',sunday:'Dimanche'}[value]||value||"Aujourd’hui");
+const dateLabels={
+  today:"Aujourd’hui",yesterday:'Hier',tomorrow:'Demain',monday:'Lundi',tuesday:'Mardi',wednesday:'Mercredi',thursday:'Jeudi',friday:'Vendredi',saturday:'Samedi',sunday:'Dimanche',
+};
+const legacyDateKeys={
+  "aujourd'hui":'today',"aujourd’hui":'today',today:'today',oggi:'today',hoje:'today','el youm':'today',lyoum:'today',lyouma:'today','النهارده':'today',
+  hier:'yesterday',yesterday:'yesterday',ieri:'yesterday',ontem:'yesterday',embare7:'yesterday',lbare7:'yesterday','امبارح':'yesterday',
+  demain:'tomorrow',tomorrow:'tomorrow',domani:'tomorrow','amanha':'tomorrow',ghodwa:'tomorrow',gheda:'tomorrow','بكرة':'tomorrow',
+  lundi:'monday',monday:'monday','lunedi':'monday','segunda-feira':'monday',ethnin:'monday',ltnin:'monday','الاثنين':'monday',
+  mardi:'tuesday',tuesday:'tuesday','martedi':'tuesday','terca-feira':'tuesday',thletha:'tuesday',tletha:'tuesday',tlat:'tuesday','الثلاثاء':'tuesday',
+  mercredi:'wednesday',wednesday:'wednesday','mercoledi':'wednesday','quarta-feira':'wednesday',larba3:'wednesday','الأربعاء':'wednesday',
+  jeudi:'thursday',thursday:'thursday','giovedi':'thursday','quinta-feira':'thursday',khmis:'thursday',lkhamis:'thursday',lkhmis:'thursday','الخميس':'thursday',
+  vendredi:'friday',friday:'friday','venerdi':'friday','sexta-feira':'friday',jom3a:'friday','الجمعة':'friday',
+  samedi:'saturday',saturday:'saturday','sabato':'saturday','sabado':'saturday',sebt:'saturday','السبت':'saturday',
+  dimanche:'sunday',sunday:'sunday','domenica':'sunday','domingo':'sunday','a7ad':'sunday','l7ed':'sunday','الأحد':'sunday',
+};
+const dateText=value=>{
+  const key=String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+  return dateLabels[legacyDateKeys[key]||key]||dateLabels.today;
+};
+const statusLabels={
+  seenAt:'Vu à',seenNow:'Vu à l’instant',seenMinute:'Vu il y a 1 min',seenFive:'Vu il y a 5 min',seenYesterday:'Vu hier',sending:'Envoi…',sent:'✓ Envoyé',delivered:'✓✓ Distribué',
+};
 const timeMinutes=value=>{if(!value)return null;const [h,m]=value.split(':').map(Number);return Number.isFinite(h)&&Number.isFinite(m)?h*60+m:null;};
 
 function VoiceBubble({src,seconds=12,phase=0,deterministic=false}){
@@ -13,7 +35,7 @@ function VoiceBubble({src,seconds=12,phase=0,deterministic=false}){
   return <div className={`voice-bubble ${playing?'is-playing':''}`}><button className="voice-play" onClick={toggle} aria-label={playing?'Pause du message vocal':'Écouter le message vocal'}>{playing?'Ⅱ':'▶'}</button><div className="voice-wave" aria-label="Forme d’onde vocale">{Array.from({length:25},(_,i)=><i key={i} style={{height:`${5+((i*17+9)%13)}px`,animationDelay:`${i*22}ms`,...(deterministic?{animation:'none',transform:`scaleY(${.48+Math.abs(Math.sin(phase*4+i))*.52})`}:{})}}/>)}</div><span className="voice-duration">{`0:${String(Math.max(1,Math.round(seconds))).padStart(2,'0')}`}</span>{src&&<audio ref={audioRef} preload="metadata" src={imageUrl(src)} onTimeUpdate={e=>setProgress(e.currentTarget.currentTime/(e.currentTarget.duration||1))} onEnded={()=>{setPlaying(false);setProgress(0);}} style={{display:'none'}}/>}<span className="voice-progress" style={{width:`${progress*100}%`}}/></div>;
 }
 
-export default function PhonePreview({ participants=[], messages=[], visibleCount=0, theme='messenger', typing=false, statusOverrides={}, ultraRealistic=true, messengerAppearance='light', renderAtMs=null, renderMode='phone-mockup', publicBaseUrl, deterministic=false, shake=0, className='', idPrefix='', forceScrollToEnd=false }) {
+export default function PhonePreview({ conversation={}, participants=[], messages=[], visibleCount=0, theme='messenger', typing=false, statusOverrides={}, ultraRealistic=true, messengerAppearance='light', googleSearchAppearance='light', renderAtMs=null, renderMode='phone-mockup', publicBaseUrl, deterministic=false, shake=0, className='', idPrefix='', forceScrollToEnd=false }) {
   const canvasRef=useRef(null);
   const a=participants.find(p=>p.participant_key==='a')||{name:'Utilisateur A'};
   const b=participants.find(p=>p.participant_key==='b')||{name:'Utilisateur B'};
@@ -46,10 +68,11 @@ export default function PhonePreview({ participants=[], messages=[], visibleCoun
     nextSenderByIndex[i]=nextNonTypingSender;
     if(visible[i].message_type!=='typing')nextNonTypingSender=visible[i].sender;
   }
-  const statusLabel=(status,m)=>status==='seen'?({time:`Vu à ${m.message_time||'HH:mm'}`,now:'Vu à l’instant',minute:'Vu il y a 1 min',five:'Vu il y a 5 min',yesterday:'Vu hier'}[m.metadata?.seen_label||'now']):({sending:'Envoi…',sent:'✓ Envoyé',delivered:'✓✓ Distribué'})[status]||'';
+  const statusLabel=(status,m)=>status==='seen'?({time:`${statusLabels.seenAt} ${m.message_time||'HH:mm'}`,now:statusLabels.seenNow,minute:statusLabels.seenMinute,five:statusLabels.seenFive,yesterday:statusLabels.seenYesterday}[m.metadata?.seen_label||'now']):statusLabels[status]||'';
   const mediaSrc=value=>value?.startsWith('/uploads/')&&publicBaseUrl?`${publicBaseUrl}${value}`:imageUrl(value);
   const MotionDiv=deterministic?'div':motion.div;
-  return <div className={`phone-frame ${className} ${deterministic?`remotion-phone-frame remotion-${renderMode}`:''}`} style={deterministic&&shake?{transform:`translate(${Math.sin(shake*.24)*1.15+Math.sin(shake*.71)*.35}px,${Math.sin(shake*.19)*.8}px) scale(4.5) scale(1.003)`}:undefined}><div id={idPrefix?`${idPrefix}-phone-screen`:'phone-screen'} className={`phone-screen ${style.shell} ${isMessenger?`messenger-appearance-${messengerAppearance}`:''} ${ultraRealistic&&isMessenger?'ultra-realistic-messenger':''}`}>
+  if(theme==='google-search')return <GoogleSearchPreview conversation={conversation} results={visible} idPrefix={idPrefix} className={className} deterministic={deterministic} renderMode={renderMode} shake={shake} appearance={googleSearchAppearance} publicBaseUrl={publicBaseUrl}/>;
+  return <div lang={conversation.language||'fr'} className={`phone-frame ${className} ${deterministic?`remotion-phone-frame remotion-${renderMode}`:''}`} style={deterministic&&shake?{transform:`translate(${Math.sin(shake*.24)*1.15+Math.sin(shake*.71)*.35}px,${Math.sin(shake*.19)*.8}px) scale(4.5) scale(1.003)`}:undefined}><div id={idPrefix?`${idPrefix}-phone-screen`:'phone-screen'} className={`phone-screen ${style.shell} ${isMessenger?`messenger-appearance-${messengerAppearance}`:''} ${ultraRealistic&&isMessenger?'ultra-realistic-messenger':''}`}>
     {ultraRealistic&&isMessenger?<div className="android-camera" aria-hidden="true"/>:<div className="phone-notch" aria-hidden="true"><i/><span/></div>}
     <div className="statusbar"><span>9:41</span><div className="status-icons"><span className="signal-bars"><i/><i/><i/><i/></span><span className="network-label">5G</span><Wifi size={14}/><span className="battery-icon"><i/><b/></span></div></div>
     <header className={`chat-header ${style.bar}`}><button className="chat-back" aria-label="Retour"><ChevronLeft size={22}/></button><div className="contact-avatar">{b.avatar?<img src={mediaSrc(b.avatar)}/>:initials(b.name)}<i/></div><div className="contact-meta"><strong>{b.name}</strong><small>{isMessenger?'Actif(ve) à l’instant':'en ligne'}</small></div><div className="header-actions"><button aria-label="Appel audio"><Phone size={17}/></button><button aria-label="Appel vidéo"><Video size={18}/></button><button aria-label="Options"><MoreHorizontal size={19}/></button></div></header>

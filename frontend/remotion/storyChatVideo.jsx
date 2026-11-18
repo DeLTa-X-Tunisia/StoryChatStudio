@@ -16,7 +16,7 @@ const scheduleMessages = (messages) => {
 
 export const StoryChatComposition = ({
   conversation = {}, participants = [], messages = [], subtitle = false,
-  includeSounds = false, ultraRealistic = true, messengerAppearance = 'light', exportMode = 'messenger-fullscreen',
+  includeSounds = false, ultraRealistic = true, messengerAppearance = 'light', googleSearchAppearance = 'light', exportMode = 'messenger-fullscreen',
   publicBaseUrl = 'http://localhost:4000',
 }) => {
   const frame = useCurrentFrame();
@@ -40,18 +40,20 @@ export const StoryChatComposition = ({
     }
   }
   const isRecording = exportMode === 'screen-recording';
-  return <AbsoluteFill className="remotion-stage" style={{ background: '#fff' }}>
+  return <AbsoluteFill lang={conversation.language || 'fr'} className="remotion-stage" style={{ background: '#fff' }}>
     {includeSounds && soundSchedule.map((item, index) => (
       <Sequence key={`tone-${item.id}`} from={Math.round(item.startMs * fps / 1000)} durationInFrames={8}>
         <Audio src={staticFile('message-tone.wav')} volume={0.14} />
       </Sequence>
     ))}
     <PhonePreview
+      conversation={conversation}
       participants={participants}
       messages={timeline}
       visibleCount={messages.length}
       theme={conversation.theme || 'messenger'}
       messengerAppearance={messengerAppearance}
+      googleSearchAppearance={googleSearchAppearance}
       ultraRealistic={ultraRealistic}
       renderAtMs={elapsedMs}
       renderMode={exportMode}
@@ -73,5 +75,5 @@ export const StoryChatRoot = () => <Composition
   calculateMetadata={({ props }) => ({
     durationInFrames: Math.max(30, scheduleMessages(props.messages || []).reduce((sum, item) => sum + Math.ceil(item.durationMs * 30 / 1000), 30) + 30),
   })}
-  defaultProps={{ conversation: {}, participants: [], messages: [], subtitle: false, ultraRealistic: true, messengerAppearance: 'light', exportMode: 'messenger-fullscreen' }}
+  defaultProps={{ conversation: {}, participants: [], messages: [], subtitle: false, ultraRealistic: true, messengerAppearance: 'light', googleSearchAppearance: 'light', exportMode: 'messenger-fullscreen' }}
 />;

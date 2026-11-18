@@ -10,7 +10,7 @@ const memoryPath = path.resolve(currentDir, '../.data/store-memory.json');
 const defaultState = {
   ids: { project: 1, conversation: 1, message: 2, character: 3 },
   projects: [{ id: 1, title: 'Première histoire', description: 'Une conversation à rebondissements.', created_at: new Date().toISOString() }],
-  conversations: [{ id: 1, project_id: 1, title: 'Le message de minuit', theme: 'messenger', created_at: new Date().toISOString(), participants: [{ name: 'Lina', avatar: '', participant_key: 'a' }, { name: 'Noah', avatar: '', participant_key: 'b' }] }],
+  conversations: [{ id: 1, project_id: 1, title: 'Le message de minuit', theme: 'messenger', language: 'fr', created_at: new Date().toISOString(), participants: [{ name: 'Lina', avatar: '', participant_key: 'a' }, { name: 'Noah', avatar: '', participant_key: 'b' }] }],
   messages: [{ id: 1, conversation_id: 1, sender: 'a', content: 'Tu es encore réveillé ?', position: 0, message_time: '23:48' }, { id: 2, conversation_id: 1, sender: 'b', content: 'Il faut que je te dise quelque chose…', position: 1, message_time: '23:49' }],
   characters: [
     { id: 1, name: 'Sara', avatar: '', description: 'Une amie loyale qui garde un secret.', color: '#a67cff', fictional_age: 24 },
@@ -33,7 +33,7 @@ async function ensureMemoryState() {
         memory = {
           ids: { ...defaultState.ids, ...(parsed.ids || {}) },
           projects: Array.isArray(parsed.projects) ? parsed.projects : structuredClone(defaultState.projects),
-          conversations: Array.isArray(parsed.conversations) ? parsed.conversations : structuredClone(defaultState.conversations),
+          conversations: Array.isArray(parsed.conversations) ? parsed.conversations.map(conversation => ({ ...conversation, language: conversation.language || 'fr' })) : structuredClone(defaultState.conversations),
           messages: Array.isArray(parsed.messages) ? parsed.messages : structuredClone(defaultState.messages),
           characters: Array.isArray(parsed.characters) ? parsed.characters : structuredClone(defaultState.characters),
         };
@@ -84,11 +84,12 @@ function nextMemoryId(state, entity) {
 }
 
 const isDb = () => Boolean(pool);
-const parseJson = r => ({ ...r, participants: typeof r.participants === 'string' ? JSON.parse(r.participants) : (r.participants || []) });
+const parseJson = r => ({ ...r, language: r.language || 'fr', participants: typeof r.participants === 'string' ? JSON.parse(r.participants) : (r.participants || []) });
 const messageFields = ['sender', 'content', 'image', 'position', 'message_time', 'message_type', 'delivery_status', 'reaction', 'appearance_ms', 'duration_ms', 'metadata'];
 const messageTypes = new Set(['message', 'typing', 'reaction', 'seen', 'user_blocked', 'call_audio_missed', 'call_video_missed', 'call_audio_accepted', 'call_video_accepted', 'call_audio_refused', 'call_video_refused', 'deleted', 'edited', 'photo', 'video', 'voice']);
 const deliveryStatuses = new Set(['sending', 'sent', 'delivered', 'seen']);
-const conversationThemes = new Set(['messenger', 'whatsapp', 'instagram', 'sms', 'telegram']);
+const conversationThemes = new Set(['messenger', 'whatsapp', 'instagram', 'sms', 'telegram', 'google-search']);
+const conversationLanguages = new Set(['fr', 'en', 'it', 'pt-BR', 'ar-TN', 'ar-DZ', 'ar-MA', 'ar-EG']);
 const inputError = message => Object.assign(new Error(message), { statusCode: 400 });
 function validateConversationFields(data, creating = false) {
   if ((creating || Object.hasOwn(data, 'title')) && (typeof data.title !== 'string' || !data.title.trim() || data.title.length > 180)) {
@@ -98,6 +99,7 @@ function validateConversationFields(data, creating = false) {
     throw inputError('Le projet de la conversation est invalide.');
   }
   if (Object.hasOwn(data, 'theme') && !conversationThemes.has(data.theme)) throw inputError('Le thème de la conversation est invalide.');
+  if (Object.hasOwn(data, 'language') && !conversationLanguages.has(data.language)) throw inputError('La langue de la conversation est invalide.');
   if (Object.hasOwn(data, 'description') && data.description !== null && typeof data.description !== 'string') throw inputError('La description de la conversation est invalide.');
 }
 function normalizeMessage(data, conversationId, position) {
@@ -250,7 +252,7 @@ export async function createConversation(data) {
   const initialMessages = Array.isArray(data.messages) ? data.messages : [];
   if (!isDb()) {
     return mutateMemory(state => {
-      const conversation = { id: nextMemoryId(state, 'conversation'), project_id: Number(data.project_id), title: data.title, description: data.description || '', theme: data.theme || 'messenger', created_at: new Date().toISOString(), participants: parts };
+      const conversation = { id: nextMemoryId(state, 'conversation'), project_id: Number(data.project_id), title: data.title, description: data.description || '', theme: data.theme || 'messenger', language: data.language || 'fr', created_at: new Date().toISOString(), participants: parts };
       state.conversations.unshift(conversation);
       initialMessages.forEach((message, position) => state.messages.push({
         id: nextMemoryId(state, 'message'),
@@ -263,7 +265,7 @@ export async function createConversation(data) {
   let id;
   try {
     await connection.beginTransaction();
-    const [result] = await connection.query('INSERT INTO conversations (project_id,title,description,theme) VALUES (?,?,?,?)', [data.project_id, data.title, data.description || '', data.theme || 'messenger']);
+    const [result] = await connection.query('INSERT INTO conversations (project_id,title,description,theme,language) VALUES (?,?,?,?,?)', [data.project_id, data.title, data.description || '', data.theme || 'messenger', data.language || 'fr']);
     id = result.insertId;
     await syncParticipants(connection.query.bind(connection), id, parts);
     for (const [position, messageData] of initialMessages.entries()) {
@@ -289,7 +291,7 @@ export async function updateConversation(id, data) {
     return mutateMemory(state => {
       const conversation = state.conversations.find(item => item.id === Number(id));
       if (!conversation) return null;
-      for (const key of ['title', 'description', 'theme', 'project_id']) {
+      for (const key of ['title', 'description', 'theme', 'language', 'project_id']) {
         if (Object.hasOwn(data, key)) conversation[key] = data[key];
       }
       if (Array.isArray(data.participants)) conversation.participants = normalizeParticipants(data.participants);
@@ -304,7 +306,7 @@ export async function updateConversation(id, data) {
       await connection.rollback();
       return null;
     }
-    const fields = ['title', 'description', 'theme', 'project_id'].filter(key => Object.hasOwn(data, key));
+    const fields = ['title', 'description', 'theme', 'language', 'project_id'].filter(key => Object.hasOwn(data, key));
     if (fields.length) await connection.query(`UPDATE conversations SET ${fields.map(key => `${key}=?`).join(',')} WHERE id=?`, [...fields.map(key => data[key]), id]);
     if (Array.isArray(data.participants)) await syncParticipants(connection.query.bind(connection), id, data.participants);
     await connection.commit();
@@ -337,7 +339,7 @@ export async function saveConversationState(id, data) {
     return mutateMemory(state => {
       const conversation = state.conversations.find(item => item.id === Number(id));
       if (!conversation) return null;
-      for (const key of ['title', 'description', 'theme', 'project_id']) {
+      for (const key of ['title', 'description', 'theme', 'language', 'project_id']) {
         if (Object.hasOwn(data, key)) conversation[key] = data[key];
       }
       conversation.participants = participants;
@@ -374,7 +376,7 @@ export async function saveConversationState(id, data) {
       await connection.rollback();
       return null;
     }
-    const fields = ['title', 'description', 'theme', 'project_id'].filter(key => Object.hasOwn(data, key));
+    const fields = ['title', 'description', 'theme', 'language', 'project_id'].filter(key => Object.hasOwn(data, key));
     if (fields.length) await connection.query(`UPDATE conversations SET ${fields.map(key => `${key}=?`).join(',')} WHERE id=?`, [...fields.map(key => data[key]), id]);
     await syncParticipants(connection.query.bind(connection), id, participants);
     const [currentRows] = await connection.query('SELECT * FROM messages WHERE conversation_id=?', [id]);
